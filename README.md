@@ -1,7 +1,16 @@
-jlsampler
+JLSampler
 =========
 
-Sampler for real-time use written in go. 
+A sampler for real-time use written in go. JLSampler uses alsa's midi sequencer
+API for capturing midi events, and uses jack for output. 
+
+JLSampler is designed for live playing using a midi keyboard. To keep latency
+low and avoid drop-outs, all samples are loaded into memory when the program 
+is launched. This might seem like overkill, but in practice, even a popular 
+sampled piano with 88 keys in 13 velocity layers is only around 10G in RAM. 
+
+I can get reliable playback on my laptop using an Alesis iO2 express USB 
+interface with 4ms latency.
 
 ## Gui
 
@@ -33,7 +42,7 @@ on-021-004-001.flac
 ```
 
 Currently only key-on samples are supported. Key-off samples may be added in 
-the future, but I personally haven't yet found a need for them. 
+the future, but I haven't yet found a need for them. 
 
 ## Controls
  
@@ -50,7 +59,7 @@ The following controls are available:
   Try 0.1 for piano-like decay.</dd>
   
   <dt>TauCut (float)</dt>
-  <dd>Decay time constant for a re-triggered key.</dd>
+  <dd>Decay time constant for a re-triggered key. 0 disables.</dd>
   
   <dt>CropThresh (float)</dt>
   <dd>Trim values below CropThresh from the beginning of samples.
@@ -68,7 +77,10 @@ The following controls are available:
   
   <dt>RmsLow (float)</dt>
   <dd>Peak RMS value for key 21 (Low A) on a keyboard. For a piano a good 
-  place to start is 0.2.</dd>
+  place to start is 0.2. The RMS value for each note is linearly interpolated 
+  across the keyboard. This provides a smooth response when moving from low
+  to high notes on the keyboard, and matches fairly well with what I've 
+  measured from a yamaha digital piano.</dd>
 
   <dt>RmsHigh (float)</dt>
   <dd>Peak RMS value for key 108 (High C) on a keyboard. For a piano a good 
@@ -76,7 +88,8 @@ The following controls are available:
 
   <dt>PanLow (float)</dt>
   <dd>Pan value for key 21 on 88 key keyboard (low A). -1 is hard left and 1 
-  is hard right.</dd>
+  is hard right. The pan value for each note is linearly interpolated from the 
+  `PanLow` and `PanHigh` values.</dd>
 
   <dt>PanHigh (float)</dt>
   <dd>Like PanLow but for key 108 (high C).</dd>
