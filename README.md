@@ -3,14 +3,14 @@ jlsampler
 
 Sampler for real-time use written in go. 
 
-# Usage
+## Usage
 
 JLSampler is called on a directory having the following structure:
 ```
 sampler_name/   
     samples/    # Directory containing samples. 
-    defaults.js # Javascript file containing with default settings. 
-    tuning.js   # Javascript file containing tuning for each file. 
+    defaults.js # JSON file containing with default settings. 
+    tuning.js   # JSON file containing tuning for each file. 
 ```
 
 ## Samples
@@ -32,6 +32,9 @@ the future, but I personally haven't yet found a need for them.
 
 ## Controls
  
+Most controls can be modified in real time from the command line, or 
+assigned to a midi control.
+
 The following controls are available: 
 <dl>
   <dt>Transpose (int)</dt>
@@ -101,3 +104,43 @@ The following controls are available:
   <dd>If true, the sampler will mix smoothly between velocity layers. This
   can be useful for certain types of prepared samples.</dd>
 </dl>
+
+## Configuration files
+
+Configuration files are stored in `~/.jlsampler`. Currently there are two 
+files: `config.js` and `controls.js`. These are both JSON files. 
+
+# config.js
+
+`config.js` contains the basic configuration variables. 
+```
+{
+    "Procs": 4,
+    "Poly": 16,
+    "MidiIn": "20:0",
+    "MidiBufSize": 32
+}
+```     
+<dl>
+  <dt>Procs</dt>
+  <dd>The number of processors to use.</dd>
+
+  <dt>Poly</dt>
+  <dd>The single-key polyphony. The is the number of simultaneous playing 
+  sounds available to each key. On an 88 key keyboard the max polyphony is 
+  88 * Poly. You'll likely run out of CPU power when your actual polyphony 
+  gets to a few hundred.</dd>
+  
+  <dt>MidiIn</dt>
+  <dd>The midi client and port to use for midi input. JLSampler uses alsa's
+  midi sequencer api. You can find your available clients and ports by calling 
+  `aconnect -io`. This setting will look like `<client>:<port>`, for example
+  `24:0`.</dd>
+  
+  <dt>MidiBufSize</dt>
+  <dd>The size of the internal midi event buffer. I've never had a problem
+  with the setting of 32. If this is too low it may be possible that some 
+  midi events are dropped, I'm note sure.</dd>
+</dl>
+
+
