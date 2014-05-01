@@ -103,6 +103,9 @@ The following controls are available:
   <dt>MixLayer (bool)</dt>
   <dd>If true, the sampler will mix smoothly between velocity layers. This
   can be useful for certain types of prepared samples.</dd>
+  
+  <dt>Sustain (bool)</dt>
+  <dd>This should be connected to your sustain pedal.</dd>
 </dl>
 
 ## Configuration files
@@ -110,7 +113,7 @@ The following controls are available:
 Configuration files are stored in `~/.jlsampler`. Currently there are two 
 files: `config.js` and `controls.js`. These are both JSON files. 
 
-# config.js
+### config.js
 
 `config.js` contains the basic configuration variables. 
 ```
@@ -143,4 +146,23 @@ files: `config.js` and `controls.js`. These are both JSON files.
   midi events are dropped, I'm note sure.</dd>
 </dl>
 
+### controls.js
 
+`controls.js` maps midi controls to the controls listed above. Below is an
+example file with two bindings. Other controls are bound in the same manner. 
+```
+{
+    "Sustain": {
+        "Num": 64,
+        "Min": 0,
+        "Max": 1,
+        "Gamma": 1.0
+    },
+    "PitchBendMax": {
+        "Num": 11,
+        "Min": 1,
+        "Max": 12,
+        "Gamma": 1
+    }
+}
+```
