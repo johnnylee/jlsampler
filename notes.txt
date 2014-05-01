@@ -1,0 +1,18 @@
+TODO:
+
+o Min and max notes (?)
+
+-------------------------------------------------------------------------------
+Adding a new control:
+
+o Add member to the Controls struct.
+o Add default in NewControls().
+o Add to Controls.Print function.
+o Add to Controls.ProcessCommand function.
+o Add Update<Name> function to Controls.
+o Add member to ControlConfigFile struct.
+o Add appropirate setMidiControl call in LoadMidiControls.
+
+// ----------------------------------------------------------------------------
+For controls affecting all samples, you may need to add functions to
+each of Sample, SampleLayer, KeySampler, and Sampler.

@@ -1,0 +1,227 @@
+#!/usr/bin/env python 
+import os
+import time
+import json
+import Tkinter as tk
+import tkFileDialog
+import subprocess
+
+
+class SimpleControl(object):
+    def __init__(self, gui, parent, row, jlName, bind_enter=True):
+        self.gui = gui
+        label = tk.Label(parent, text=jlName + ":")
+        label.grid(row=row, sticky=tk.W)
+
+        self.ctrl = tk.Entry(parent)
+        self.ctrl.grid(row=row, column=1, sticky=tk.EW)
+        if bind_enter:
+            self.ctrl.bind("<Return>", self.send_command)
+
+        self.jlName = jlName
+        
+    def get_command(self):
+        return self.jlName + "=" + str(self.ctrl.get()) + "\n"
+    
+    def get_value(self):
+        return str(self.ctrl.get())
+        
+    def set_value(self, val):
+        self.ctrl.delete(0, tk.END)
+        self.ctrl.insert(0, str(val))
+        
+    def apply_defaults(self, defaults):
+        if self.jlName in defaults:
+            self.set_value(defaults[self.jlName])
+            
+    def send_command(self, *args, **kwargs):
+        if self.gui.is_running():
+            try:
+                self.gui.proc.stdin.write(self.get_command())
+            except Exception, ex:
+                print("Failed to send command:", self.get_command())
+                print(ex)
+            
+        
+class GUI(object):
+    def __init__(self, master):
+        # Internal state. 
+        self.proc = None
+
+        self.master = master
+        self.is_running() # Load title. 
+
+        frame_kwargs = {"padx":4, "pady":4}
+
+        
+        # First box is for loading a sampler. 
+        frame = tk.LabelFrame(self.master, text="Sampler", **frame_kwargs)
+        frame.pack(fill=tk.X)
+        frame.columnconfigure(1, weight=1)
+
+        self._SamplerPath = SimpleControl(self, frame, 0, "Path", 
+                                          bind_enter=False)
+        
+        btn_frame = tk.Frame(frame)
+        btn_frame.grid(row=1, columnspan=2, sticky=tk.EW)
+        btn = tk.Button(btn_frame, text="Browse", command=self.on_browse)
+        btn.grid(row=0, sticky=tk.W)
+        
+        btn = tk.Button(btn_frame, text="Start/Stop", 
+                        command=self.on_start_stop)
+        btn.grid(row=0, column=1, sticky=tk.W)
+        
+        # Next box is basic controls. 
+        frame = tk.LabelFrame(
+            self.master, text="Controls", **frame_kwargs)
+        frame.pack(fill=tk.X)
+        frame.columnconfigure(1, weight=1)
+
+        row = 0
+        self._Transpose = SimpleControl(self, frame, row, "Transpose")
+        row += 1
+        self._PitchBendMax = SimpleControl(self, frame, row, "PitchBendMax")
+        row += 1 
+        self._Tau = SimpleControl(self, frame, row, "Tau")
+        row += 1 
+        self._TauCut = SimpleControl(self, frame, row, "TauCut")
+        row += 1 
+        self._CropThresh = SimpleControl(self, frame, row, "CropThresh")
+        row += 1 
+        self._CropFade = SimpleControl(self, frame, row, "CropFade")
+        row += 1 
+        self._RmsTime = SimpleControl(self, frame, row, "RmsTime")
+        row += 1 
+        self._RmsLow = SimpleControl(self, frame, row, "RmsLow")
+        row += 1 
+        self._RmsHigh = SimpleControl(self, frame, row, "RmsHigh")
+        row += 1 
+        self._PanLow = SimpleControl(self, frame, row, "PanLow")
+        row += 1 
+        self._PanHigh = SimpleControl(self, frame, row, "PanHigh")
+        row += 1 
+        self._GammaAmp = SimpleControl(self, frame, row, "GammaAmp")
+        row += 1 
+        self._GammaLayer = SimpleControl(self, frame, row, "GammaLayer")
+        row += 1 
+        self._VelMult = SimpleControl(self, frame, row, "VelMult")
+        row += 1 
+        self._MixLayers = SimpleControl(self, frame, row, "MixLayers")
+        self.controls = [
+            self._Transpose, self._PitchBendMax,
+            self._Tau, self._TauCut, self._CropThresh, self._CropFade, 
+            self._RmsTime, self._RmsLow, self._RmsHigh, self._PanLow, 
+            self._PanHigh, self._GammaAmp, self._GammaLayer, self._VelMult, 
+            self._MixLayers
+            ]
+
+    def on_browse(self, *args, **kwargs):
+        sampler_path = tkFileDialog.askdirectory()
+        if len(sampler_path) > 0:
+            self._SamplerPath.set_value(sampler_path)
+            if self.is_running():
+                self.on_start_stop() 
+            self.on_start_stop()
+
+    def is_running(self):
+        if self.proc is None:
+            self.master.title("JLSampler [NOT RUNNING]")
+            return False
+        elif self.proc.poll() is not None:
+            self.master.title("JLSampler [NOT RUNNING]")
+            self.proc = None
+            return False
+        else:
+            self.master.title("JLSampler [RUNNING]")
+            return True
+            
+    def on_start_stop(self, *args, **kwargs): 
+        # Kill proc if running. 
+        if self.is_running():
+            self.proc.stdin.write("quit\n")
+            self.proc.stdin.close()
+            self.proc = None
+        else:
+            self.start_sampler()
+
+        # Update the title. 
+        time.sleep(1)
+        self.is_running() 
+
+    def load_default_control_vals(self):
+        self._Transpose.set_value(0)
+        self._PitchBendMax.set_value(1)
+        self._Tau.set_value(0)
+        self._TauCut.set_value(0)
+        self._CropThresh.set_value(0)
+        self._CropFade.set_value(0)
+        self._RmsTime.set_value(0.25)
+        self._RmsLow.set_value(0.20)
+        self._RmsHigh.set_value(0.04)
+        self._PanLow.set_value(0)
+        self._PanHigh.set_value(0)
+        self._GammaAmp.set_value(2.2)
+        self._GammaLayer.set_value(1)
+        self._VelMult.set_value(1)
+        self._MixLayers.set_value(0)
+        
+        
+    def load_json_control_vals(self):
+        try:
+            path = os.path.join(self._SamplerPath.get_value(), "defaults.js")
+            defaults = json.load(open(path, 'rb'))
+            for ctrl in self.controls:
+                ctrl.apply_defaults(defaults)
+        except Exception, ex:
+            print("Exception loading json file:", ex)
+
+        
+    def start_sampler(self):
+        self.load_default_control_vals()
+        self.load_json_control_vals()
+
+        # Start the sampler. 
+        cmd = "jlsampler " + self._SamplerPath.get_value()
+        self.proc = subprocess.Popen(
+            cmd, shell=True, 
+            stdin=subprocess.PIPE)#, stdout=subprocess.PIPE)
+
+
+    def on_browse_playfile(self, *args, **kwargs):
+        path = tkFileDialog.askopenfilename(
+            filetypes=(("Audio files", ".flac", ".wav"),))
+        if len(path) > 0:
+            self._PlayFile.set_value(path)
+            self._PlayFile.send_command()
+            
+    def send_command(self, cmd):
+        if self.is_running():
+            try:
+                self.proc.stdin.write(cmd + "\n")
+            except Exception, ex:
+                print("Failed to send command:", self.get_command())
+                print(ex)  
+
+    def on_stop(self, *args, **kwargs):
+        self.send_command("PlayRecord=0")
+
+    def on_play(self, *args, **kwargs):
+        self.send_command("Play=1")
+    
+    def on_record(self, *args, **kwargs):
+        self.send_command("Record=1")
+    
+    def on_playrecord(self, *args, **kwargs):
+        self.send_command("PlayRecord=1")
+    
+    def on_browse_impfile(self, *args, **kwargs):
+        path = tkFileDialog.askopenfilename(
+            filetypes=(("Flac files", ".flac"),))
+        if len(path) > 0:
+            self._ImpFile.set_value(path)
+            self._ImpFile.send_command()
+    
+if __name__ == "__main__":
+    root = tk.Tk()
+    gui = GUI(root)
+    root.mainloop()
