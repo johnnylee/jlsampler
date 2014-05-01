@@ -3,6 +3,11 @@ jlsampler
 
 Sampler for real-time use written in go. 
 
+## Gui
+
+There is a basic GUI in the `gui` subfolder, written in Python. It only uses
+tkinter, so it should run without any additional python packages installed. 
+
 ## Usage
 
 JLSampler is called on a directory having the following structure:
