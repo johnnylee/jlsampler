@@ -11,7 +11,6 @@ type Config struct {
 	Procs int // Number of processors to use.
 	Poly  int // Single key polyphony.
 	MidiIn      string // Controller midi port (keyboard).
-	MidiBufSize int    // The midi buffer size.
 }
 
 func LoadConfig() (*Config, error) {

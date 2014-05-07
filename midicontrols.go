@@ -21,8 +21,8 @@ type ControlConfigFile struct {
 	Transpose    ControlConfig
 	Tau          ControlConfig
 	TauCut       ControlConfig
+	TauFadeIn    ControlConfig
 	CropThresh   ControlConfig
-	CropFade     ControlConfig
 	RmsTime      ControlConfig
 	RmsLow       ControlConfig
 	RmsHigh      ControlConfig
@@ -33,7 +33,6 @@ type ControlConfigFile struct {
 	VelMult      ControlConfig
 	PitchBendMax ControlConfig
 	MixLayers    ControlConfig
-	PrintLatency ControlConfig
 	Sustain      ControlConfig
 }
 
@@ -74,8 +73,8 @@ func LoadMidiControls() error {
 	setMidiControl(cfg.Transpose, controls.UpdateTranspose)
 	setMidiControl(cfg.Tau, controls.UpdateTau)
 	setMidiControl(cfg.TauCut, controls.UpdateTauCut)
+	setMidiControl(cfg.TauFadeIn, controls.UpdateTauFadeIn)
 	setMidiControl(cfg.CropThresh, controls.UpdateCropThresh)
-	setMidiControl(cfg.CropFade, controls.UpdateCropFade)
 	setMidiControl(cfg.RmsTime, controls.UpdateRmsTime)
 	setMidiControl(cfg.RmsLow, controls.UpdateRmsLow)
 	setMidiControl(cfg.RmsHigh, controls.UpdateRmsHigh)
@@ -86,7 +85,6 @@ func LoadMidiControls() error {
 	setMidiControl(cfg.VelMult, controls.UpdateVelMult)
 	setMidiControl(cfg.PitchBendMax, controls.UpdatePitchBendMax)
 	setMidiControl(cfg.MixLayers, controls.UpdateMixLayers)
-	setMidiControl(cfg.PrintLatency, controls.UpdatePrintLatency)
 	setMidiControl(cfg.Sustain, controls.UpdateSustain)
 	return nil
 }

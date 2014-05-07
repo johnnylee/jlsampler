@@ -8,12 +8,12 @@ import (
 // ----------------------------------------------------------------------------
 type KeySampler struct {
 	Key     int            // The midi key number.
-	hasData bool           // True if the sampler has data to write.
 	on      bool           // True if key is on (down).
 	layers  []*SampleLayer // The sample layers.
 
-	// A queue of samples that are currently being played for this key.
-	playing chan *PlayingSample
+	// A slice of playing samples. The length is the number of playing samples,
+	// and the capacity is config.Poly. 
+	playing []*PlayingSample
 }
 
 func NewKeySampler(key, numLayers int) *KeySampler {
@@ -27,8 +27,18 @@ func NewKeySampler(key, numLayers int) *KeySampler {
 		ks.layers[i] = new(SampleLayer)
 	}
 
-	ks.playing = make(chan *PlayingSample, config.Poly)
+	ks.playing = make([]*PlayingSample, 0, config.Poly)
+
 	return ks
+}
+
+func (ks *KeySampler) HasMissingLayers() bool {
+	for _, sl := range ks.layers {
+		if sl.NumSamples() == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (ks *KeySampler) Copy() *KeySampler {
@@ -72,8 +82,7 @@ func (ks *KeySampler) Transpose(trans int) *KeySampler {
 		ks2.layers = append(ks2.layers, layer.Transpose(trans))
 	}
 
-	ks2.playing = make(chan *PlayingSample, cap(ks.playing))
-
+	ks2.playing = make([]*PlayingSample, 0, cap(ks.playing))
 	return ks2
 }
 
@@ -119,7 +128,7 @@ func (ks *KeySampler) getPlayingSampleMix(velocity float64) *PlayingSample {
 		layer2 = numLayers - 1
 	}
 	
-	mix := float32(layerVal) - float32(layer1)
+	mix := layerVal - float64(layer1)
 	
 	// Samples. 
 	sIdx, sample1 := ks.layers[layer1].GetSample(-1)
@@ -136,28 +145,27 @@ func (ks *KeySampler) getPlayingSampleMix(velocity float64) *PlayingSample {
 }
 
 func (ks *KeySampler) NoteOn(velocity float64) {
-	ks.hasData = true
 	ks.on = true
 
 	// Kick a sound out of the queue if we have to.
 	if len(ks.playing) == cap(ks.playing) {
+		for i := 1; i < len(ks.playing); i++ {
+			ks.playing[i-1] = ks.playing[i]
+		}
+		ks.playing = ks.playing[:len(ks.playing) - 1]
 		Println("Sound stopped. Not enough polyphony.")
-		<-ks.playing
 	}
 
 	// Loop through playing samples. All currently playing samples should
 	// decay with constant tauCut.
 	if controls.TauCut != 0 {
-		N := len(ks.playing)
-		for i := 0; i < N; i++ {
-			ps := <-ks.playing
+		for _, ps := range(ks.playing) {
 			ps.tau = controls.TauCut
-			ks.playing <- ps
 		}
 	}
 
 	// Add a new playing sample.
-	ks.playing <- ks.getPlayingSample(velocity)
+	ks.playing = append(ks.playing, ks.getPlayingSample(velocity))
 }
 
 func (ks *KeySampler) NoteOff() {
@@ -171,44 +179,41 @@ func (ks *KeySampler) NoteOff() {
 	// Loop through playing sounds. If any aren't decaying, then
 	// they need to have tau set.
 	if controls.Tau != 0 {
-		N := len(ks.playing)
-		for i := 0; i < N; i++ {
-			ps := <-ks.playing
+		for _, ps := range ks.playing {
 			if ps.tau == 0 {
 				ps.tau = controls.Tau
 			}
-			ks.playing <- ps
 		}
 	}
 }
 
 func (ks *KeySampler) HasData() bool {
-	return ks.hasData
+	return len(ks.playing) != 0
 }
 
 func (ks *KeySampler) WriteOutput(buf *Sound) {
-	ks.hasData = false
 	var ps *PlayingSample
-
-	N := len(ks.playing)
-	for i := 0; i < N; i++ {
-		ps = <-ks.playing
-
-		// Check for sustain pedal depressed.
-		if i == N-1 && controls.Sustain && ps.tau != 0 {
-			ps.tau = 0
-		}
-
+		
+	// Check for sustain pedal depressed. 
+	ps = ks.playing[len(ks.playing) - 1]
+	if controls.Sustain && ps.tau != 0 {
+		ps.tau = 0
+	}
+		
+	iIn := 0
+	for _, ps = range ks.playing {
 		// Check for sustain pedal lift.
 		if !ks.on && !controls.Sustain && ps.tau == 0 {
 			ps.tau = controls.Tau
 		}
 
 		if ps.WriteOutput(buf) {
-			ks.hasData = true
-			ks.playing <- ps
+			ks.playing[iIn] = ps
+			iIn++
 		}
 	}
+
+	ks.playing = ks.playing[:iIn]
 }
 
 func (ks *KeySampler) UpdateCropThresh() {

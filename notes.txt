@@ -1,17 +1,23 @@
-TODO:
 
+o Error on pitch bend < 0 (mistake in code?)
+o sampler.go: Clean up FillTransposeSamples
+o playingsample.go: Clean up messy playing code
+o Smoothing of pitch bend
 o Min and max notes (?)
 
 -------------------------------------------------------------------------------
 Adding a new control:
 
-o Add member to the Controls struct.
-o Add default in NewControls().
-o Add to Controls.Print function.
-o Add to Controls.ProcessCommand function.
-o Add Update<Name> function to Controls.
-o Add member to ControlConfigFile struct.
-o Add appropirate setMidiControl call in LoadMidiControls.
+controls.go:
+  o Add member to the Controls struct.
+  o Add default in NewControls().
+  o Add to Controls.Print function.
+  o Add to Controls.ProcessCommand function.
+  o Add Update<Name> function to Controls.
+
+midicontrols.go:
+  o Add member to ControlConfigFile struct.
+  o Add appropirate setMidiControl call in LoadMidiControls.
 
 // ----------------------------------------------------------------------------
 For controls affecting all samples, you may need to add functions to

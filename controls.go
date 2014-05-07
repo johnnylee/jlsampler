@@ -1,6 +1,7 @@
 package jlsampler
 
 import (
+	"bufio"
 	"encoding/json"
 	"math"
 	"os"
@@ -23,8 +24,8 @@ type Controls struct {
 	Transpose    int8    // Added to midi note on input.
 	Tau          float64 // Key-up decay time constant.
 	TauCut       float64 // Key-repeat or cut decay time constant.
+	TauFadeIn    float64 // Sample fade in time. 
 	CropThresh   float64 // Cut beginning of samples below this threshold.
-	CropFade     float64 // Samples over which to fade in cropped samples. 
 	RmsTime      float64 // Time period to use to compute sample RMS.
 	RmsLow       float64 // RMS for key 21 (Low A).
 	RmsHigh      float64 // RMS for key 108 (High C).
@@ -36,18 +37,22 @@ type Controls struct {
 	PitchBendMax int8    // Maximum pitch bend in semitones.
 	RRBorrow     int     // Distance to borrow round-robbin samples.
 	MixLayers    bool    // It True, mix layers together.
-	PrintLatency bool    // If True, print latency to the screen (in ms).
 	Sustain      bool    // Sustain pedal value (0-1).
 	di           float32 // Step size (due to pitch shift).
 }
 
 func NewControls() *Controls {
 	c := new(Controls)
+	c.LoadDefaults()
+	return c
+}
+
+func (c *Controls) LoadDefaults() {
 	c.Transpose = 0
 	c.Tau = 0
 	c.TauCut = 0
+	c.TauFadeIn = 0
 	c.CropThresh = 0
-	c.CropFade = 0
 	c.RmsTime = 0.25
 	c.RmsLow = 0.20
 	c.RmsHigh = 0.04
@@ -59,13 +64,13 @@ func NewControls() *Controls {
 	c.PitchBendMax = 1
 	c.RRBorrow = 0
 	c.MixLayers = false
-	c.PrintLatency = false
 	c.di = 1.0
 	c.Sustain = false
-	return c
 }
 
 func (c *Controls) LoadFrom(path string) error {
+	c.LoadDefaults()
+
 	// Open the file.
 	f, err := os.Open(path)
 	if err != nil {
@@ -80,7 +85,7 @@ func (c *Controls) LoadFrom(path string) error {
 
 	c.UpdateTau(c.Tau)
 	c.UpdateTauCut(c.TauCut)
-	c.UpdateCropFade(c.CropFade)
+	c.UpdateTauFadeIn(c.TauFadeIn)
 	
 	return nil
 }
@@ -90,8 +95,8 @@ func (c *Controls) Print() {
 	Println("Transpose:   ", c.Transpose)
 	Println("Tau:         ", -1/(math.Log(c.Tau)*sampleRate))
 	Println("TauCut:      ", -1/(math.Log(c.TauCut)*sampleRate))
+	Println("TauFadeIn:   ", -1/(math.Log(c.TauFadeIn)*sampleRate))
 	Println("CropThresh:  ", c.CropThresh)
-	Println("CropFade:    ", float64(c.CropFade) / sampleRate)
 	Println("RmsTime:     ", c.RmsTime)
 	Println("RmsLow:      ", c.RmsLow)
 	Println("RmsHigh:     ", c.RmsHigh)
@@ -103,7 +108,6 @@ func (c *Controls) Print() {
 	Println("PitchBendMax:", c.PitchBendMax)
 	Println("RRBorrow:    ", c.RRBorrow)
 	Println("MixLayers:   ", c.MixLayers)
-	Println("PrintLatency:", c.PrintLatency)
 }
 
 func (c *Controls) CalcAmp(key int, velocity, rms float64) float64 {
@@ -117,14 +121,45 @@ func (c *Controls) CalcPan(key int) float64 {
 	return c.PanLow + m*(float64(key)-21)
 }
 
+func (c *Controls) Run() {
+	reader := bufio.NewReader(os.Stdin)
+	
+	var err error
+	var line string
+	
+	for {
+		if line, err = reader.ReadString('\n'); err != nil {
+			Println("Error reading input:", err)
+			return
+		}
+		line = line[:len(line) - 1] // Strip \n.
+		if len(line) > 0 {
+			if line == "print" {
+				c.Print()
+			} else if line == "quit" {
+				break
+			} else {
+				c.ProcessCommand(line)
+			}
+		}
+	}
+}
+
 func (c *Controls) ProcessCommand(cmd string) {
 	sp := strings.Split(cmd, "=")
-	if len(sp) != 2 {
-		Println("Unknown command:", cmd)
+	
+	cmd = sp[0]
+	
+	// Load and Unload commands are strings. 
+	if cmd == "Load" {
+		if err := sampler.Load(sp[1]); err != nil {
+			Println("Error loading samples:", err)
+		}
+		return
+	} else if cmd == "Unload" {
+		sampler.Unload()
 		return
 	}
-
-	cmd = sp[0]
 	
 	// Convert bools to floats. 
 	sp[1] = strings.ToLower(sp[1])
@@ -148,10 +183,10 @@ func (c *Controls) ProcessCommand(cmd string) {
 		c.UpdateTau(val)
 	case "TauCut":
 		c.UpdateTauCut(val)
+	case "TauFadeIn":
+		c.UpdateTauFadeIn(val)
 	case "CropThresh":
 		c.UpdateCropThresh(val)
-	case "CropFade":
-		c.UpdateCropFade(val)
 	case "RmsTime":
 		c.UpdateRmsTime(val)
 	case "RmsLow":
@@ -172,8 +207,6 @@ func (c *Controls) ProcessCommand(cmd string) {
 		c.UpdatePitchBendMax(val)
 	case "MixLayers":
 		c.UpdateMixLayers(val)
-	case "PrintLatency":
-		c.UpdatePrintLatency(val)
 	default:
 		Println("Unknown command:", cmd)
 		return
@@ -197,18 +230,15 @@ func (c *Controls) UpdateTauCut(x float64) {
 	Println("TauCut:", x)
 }
 
+func (c *Controls) UpdateTauFadeIn(x float64) {
+	c.TauFadeIn = computeTau(x)
+	Println("TauFadeIn:", x)
+}
+
 func (c *Controls) UpdateCropThresh(x float64) {
 	c.CropThresh = x
 	Println("CropThresh:", x)
 	sampler.UpdateCropThresh()
-}
-
-func (c *Controls) UpdateCropFade(x float64) {
-	if x < 0 {
-		x = 0
-	}
-	c.CropFade = float64(int(x * sampleRate))
-	Println("CropFade:", x)
 }
 
 func (c *Controls) UpdateRmsTime(x float64) {
@@ -262,16 +292,12 @@ func (c *Controls) UpdateMixLayers(x float64) {
 	Println("MixLayers:", c.MixLayers)
 }
 
-func (c *Controls) UpdatePrintLatency(x float64) {
-	c.PrintLatency = x > 0.5
-	Println("PrintLatency:", c.PrintLatency)
-}
-
 func (c *Controls) UpdateSustain(x float64) {
 	c.Sustain = x > 0.5
 }
 
 func (c *Controls) UpdatePitchBend(x float64) {
 	c.di = float32(math.Pow(2.0, x*float64(c.PitchBendMax)/12.0))
+	Println("di:", x, c.di)
 }
 

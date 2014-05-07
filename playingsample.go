@@ -1,25 +1,27 @@
 package jlsampler
 
+import (
+	"math"
+)
+
 // ----------------------------------------------------------------------------
 type PlayingSample struct {
 	sample1 *Sample // Quieter sample being played.
 	sample2 *Sample // Louder sample being played if mixLayers is true.
-	mix     float32 // The mix parameter: (1-mix)*sample1 + mix*sample2.
+	mix     float64 // The mix parameter: (1-mix)*sample1 + mix*sample2.
 	idx     float32 // Index being played in the given sample.
 	amp1    float64 // Current amplification for sample 1. 
 	amp2    float64 // Current amplification for sample 2. 
 	pan     float64 // Pan of playing sample: -1 is hard left, 1 is hard right.
 	tau     float64 // Decay constant (0 is disabled).
 
-	fadeIdx int64   // How far along in our fade in we are. 
-	fadeAmp float32 // Fade in amplification if controls.CropFade > 0. 
+	fadeAmp float64 // Fade in amplification if controls.TauFadeIn > 0.
 }
 
 // NewPlayingSample:
 // If not mixing layers, then mix should be 0, and amp2 is ignored. 
 func NewPlayingSample(
-	sample1, sample2 *Sample, amp1, amp2, pan float64, 
-	mix float32) *PlayingSample {
+	sample1, sample2 *Sample, amp1, amp2, pan, mix float64) *PlayingSample {
 
 	ps := new(PlayingSample)
 	ps.sample1 = sample1
@@ -30,16 +32,21 @@ func NewPlayingSample(
 	ps.pan = pan
 	ps.tau = 0
 	
-	if controls.CropFade != 0 {
-		ps.fadeAmp = 0
-	} else {
+	if controls.TauFadeIn != 0 {
 		ps.fadeAmp = 1
+	} else {
+		ps.fadeAmp = 0
 	}
 	
+	N := float32(0)
+	if controls.TauFadeIn != 0 {
+		N = float32(math.Log(ampCutoff) / math.Log(controls.TauFadeIn))
+	}
+
 	if sample2 != nil {
-		ps.idx = float32(sample2.Idx0) - float32(controls.CropFade)
+		ps.idx = float32(sample2.Idx0) - N
 	} else {
-		ps.idx = float32(sample1.Idx0) - float32(controls.CropFade)
+		ps.idx = float32(sample1.Idx0) - N
 	}
 	
 	if ps.idx < 0 {
@@ -91,25 +98,24 @@ func (ps *PlayingSample) WriteOutput(buf *Sound) bool {
 			}
 		} 
 
-		// Fade in. 
-		if ps.fadeAmp < 1 {
-			ps.fadeIdx++
-			ps.fadeAmp = float32(ps.fadeIdx) / float32(controls.CropFade)
-			if ps.fadeAmp > 1 {
-				ps.fadeAmp = 1
+		// Fade in.
+		if ps.fadeAmp > 0 {
+			ps.fadeAmp *= controls.TauFadeIn
+			if ps.fadeAmp < ampCutoff {
+				ps.fadeAmp = 0
 			}
 		}
 		
 		// Add layer1. 
 		L, R = ps.getCurrentSample(0)
-		buf.L[i] += L * float32(1 - ps.mix) * ps.fadeAmp
-		buf.R[i] += R * float32(1 - ps.mix) * ps.fadeAmp
+		buf.L[i] += L * float32((1 - ps.mix) * (1 - ps.fadeAmp))
+		buf.R[i] += R * float32((1 - ps.mix) * (1 - ps.fadeAmp))
 
 		// If mixing layers, add second sample.
 		if ps.mix != 0 {
 			L, R = ps.getCurrentSample(1)
-			buf.L[i] += L * float32(ps.mix) * ps.fadeAmp
-			buf.R[i] += R * float32(ps.mix) * ps.fadeAmp
+			buf.L[i] += L * float32((ps.mix) * (1 - ps.fadeAmp))
+			buf.R[i] += R * float32((ps.mix) * (1 - ps.fadeAmp))
 		}
 
 		// Update index.

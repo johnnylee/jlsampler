@@ -6,6 +6,10 @@ type SampleLayer struct {
 	idx     int
 }
 
+func (sl *SampleLayer) NumSamples() int {
+	return len(sl.samples)
+}
+
 func (sl *SampleLayer) Copy() *SampleLayer {
 	sl2 := new(SampleLayer)
 	for _, s := range sl.samples {
@@ -58,7 +62,6 @@ func (sl *SampleLayer) UpdateRms() {
 
 // ----------------------------------------------------------------------------
 type Sound struct {
-	T0  int64     // Creation time in nanoseconds.
 	Len int       // The length of the sound.
 	L   []float32 // Left channel.
 	R   []float32 // Right channel.

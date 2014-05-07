@@ -11,9 +11,9 @@ const (
 
 // ----------------------------------------------------------------------------
 // Global objects.
-var config *Config
+var config *Config 
 var controls *Controls = NewControls()
 var midiControls []func(float64) = make([]func(float64), 128)
-var sampler *Sampler = NewSampler()
-
+var sampler *Sampler 
+var midiListener *MidiListener
 
