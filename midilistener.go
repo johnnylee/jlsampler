@@ -13,15 +13,19 @@ import (
 
 // ----------------------------------------------------------------------------
 type MidiListener struct {
-	handle *C.snd_seq_t // Handle for midi sequencer.
+	sampler *Sampler
+	handle  *C.snd_seq_t // Handle for midi sequencer.
 }
 
 /* NewMidiListener
  * name     : The name of the device.
  * midiPort : An incoming midi port to connect to.
  */
-func NewMidiListener(name, midiPort string) (*MidiListener, error) {
+func NewMidiListener(
+	sampler *Sampler, name, midiIn string) (*MidiListener, error) {
+
 	ml := new(MidiListener)
+	ml.sampler = sampler
 
 	// Open the midi device.
 	openIn := C.int(C.SND_SEQ_OPEN_INPUT)
@@ -49,10 +53,10 @@ func NewMidiListener(name, midiPort string) (*MidiListener, error) {
 	}
 
 	// Call aconnect to connect midi port.
-	if len(midiPort) != 0 {
+	if len(midiIn) != 0 {
 		go func() {
 			midiPort := fmt.Sprintf("%d:%d", clientNum, portNum)
-			cmd := "aconnect " + config.MidiIn + " " + midiPort
+			cmd := "aconnect " + midiIn + " " + midiPort
 			err := exec.Command("sh", "-c", cmd).Run()
 			if err != nil {
 				Println("Failed in call to aconnect:", cmd, err)
@@ -64,7 +68,7 @@ func NewMidiListener(name, midiPort string) (*MidiListener, error) {
 }
 
 func noteAndValue(ev *C.snd_seq_event_t) (int8, float64) {
-	note := int8(ev.data[1]) + controls.Transpose
+	note := int8(ev.data[1])
 	value := float64(ev.data[2]) / 127.0
 	return note, value
 }
@@ -90,22 +94,22 @@ func (ml *MidiListener) Run() {
 		case C.SND_SEQ_EVENT_NOTEON:
 			note, value = noteAndValue(ev)
 			if ev.data[2] != 0 {
-				sampler.NoteOnEvent(note, value)
+				ml.sampler.NoteOnEvent(note, value)
 			} else {
-				sampler.NoteOffEvent(note, value)
+				ml.sampler.NoteOffEvent(note, value)
 			}
 
 		case C.SND_SEQ_EVENT_NOTEOFF:
 			note, value = noteAndValue(ev)
-			sampler.NoteOffEvent(note, value)
+			ml.sampler.NoteOffEvent(note, value)
 
 		case C.SND_SEQ_EVENT_CONTROLLER:
-			sampler.ControllerEvent(
+			ml.sampler.ControllerEvent(
 				int32(binary.LittleEndian.Uint32(ev.data[4:8])),
 				float64(binary.LittleEndian.Uint32(ev.data[8:12]))/127)
 
 		case C.SND_SEQ_EVENT_PITCHBEND:
-			sampler.PitchBendEvent(
+			ml.sampler.PitchBendEvent(
 				float64(binary.LittleEndian.Uint32(ev.data[8:12])) / 8192.0)
 		}
 	}

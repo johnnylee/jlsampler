@@ -1,41 +1,30 @@
 package jlsampler
 
 import (
+	"os"
 	"runtime"
 )
 
 func RunApp() {
 	var err error
 
-	// Load global config.
-	if config, err = LoadConfig(); err != nil {
-		Println("Failed to load config file:", err)
+	if len(os.Args) < 2 {
+		Println("Usage:", os.Args[0], "sampler-path", "[name]")
 		return
 	}
 
-	runtime.GOMAXPROCS(config.Procs)
+	path := os.Args[1]
 
-	// Load global midi controls.
-	if err = LoadMidiControls(); err != nil {
-		Println("Failed to load midi controls:", err)
-		return
+	name := "JLSampler"
+	if len(os.Args) > 2 {
+		name = os.Args[2]
 	}
-	
-	// Create new sampler. 
-	sampler, err = NewSampler("JLSampler")
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	sampler, err := NewSampler(name, path)
 	if err != nil {
-		Println("Failed to create sampler:", err)
-		return
+		Println("Error:", err)
 	}
-	
-	// Create midi listener. 
-	midiListener, err = NewMidiListener("JLSampler", config.MidiIn)
-	if err != nil {
-		Println("Failed to create midi listener:", err)
-		return
-	}
-	
-	// Run. 
-	go midiListener.Run()
-	controls.Run()
+
+	sampler.Run()
 }

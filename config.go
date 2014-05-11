@@ -8,9 +8,7 @@ import (
 )
 
 type Config struct {
-	Procs int // Number of processors to use.
-	Poly  int // Single key polyphony.
-	MidiIn      string // Controller midi port (keyboard).
+	MidiIn string // Controller midi port (keyboard).
 }
 
 func LoadConfig() (*Config, error) {
@@ -31,6 +29,6 @@ func LoadConfig() (*Config, error) {
 	if err = decoder.Decode(config); err != nil {
 		return nil, err
 	}
-	
+
 	return config, nil
 }

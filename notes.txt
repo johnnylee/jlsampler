@@ -1,24 +1,8 @@
+TODO:
 
-o Error on pitch bend < 0 (mistake in code?)
-o sampler.go: Clean up FillTransposeSamples
-o playingsample.go: Clean up messy playing code
-o Smoothing of pitch bend
-o Min and max notes (?)
+o Quit as jack client gracefully.
+o Handle out-of-range values in controls.Update* functions.
+o Add Amp control.
 
--------------------------------------------------------------------------------
-Adding a new control:
-
-controls.go:
-  o Add member to the Controls struct.
-  o Add default in NewControls().
-  o Add to Controls.Print function.
-  o Add to Controls.ProcessCommand function.
-  o Add Update<Name> function to Controls.
-
-midicontrols.go:
-  o Add member to ControlConfigFile struct.
-  o Add appropirate setMidiControl call in LoadMidiControls.
-
-// ----------------------------------------------------------------------------
-For controls affecting all samples, you may need to add functions to
-each of Sample, SampleLayer, KeySampler, and Sampler.
+o Loading unpitched (drum) samples and mapping to keys.
+o Pitch bend.

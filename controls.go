@@ -3,8 +3,11 @@ package jlsampler
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"math"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -21,34 +24,43 @@ func computeTau(tau float64) float64 {
 
 // ----------------------------------------------------------------------------
 type Controls struct {
-	Transpose    int8    // Added to midi note on input.
-	Tau          float64 // Key-up decay time constant.
-	TauCut       float64 // Key-repeat or cut decay time constant.
-	TauFadeIn    float64 // Sample fade in time. 
-	CropThresh   float64 // Cut beginning of samples below this threshold.
-	RmsTime      float64 // Time period to use to compute sample RMS.
-	RmsLow       float64 // RMS for key 21 (Low A).
-	RmsHigh      float64 // RMS for key 108 (High C).
-	PanLow       float64 // Panning for key 21. -1 is left, 1 is right.
-	PanHigh      float64 // Panning for key 108.
-	GammaAmp     float64 // Amplitude scaling x^gamma.
-	GammaLayer   float64 // Layer scaling.
-	VelMult      float64 // Velocity multiplier.
-	PitchBendMax int8    // Maximum pitch bend in semitones.
-	RRBorrow     int     // Distance to borrow round-robbin samples.
-	MixLayers    bool    // It True, mix layers together.
-	Sustain      bool    // Sustain pedal value (0-1).
-	di           float32 // Step size (due to pitch shift).
+	sampler *Sampler // For callbacks.
+	NFadeIn float32  // Fade-in length in samples. Computed from TauFadeIn.
+
+	Transpose    int8 // Added to midi note on input.
+	PitchBendMax int8 // Maximum pitch bend in semitones.
+	RRBorrow     int8 // Distance to borrow round-robbin samples.
+
+	Tau       float64 // Key-up decay time constant.
+	TauCut    float64 // Key-repeat or cut decay time constant.
+	TauFadeIn float64 // Sample fade in time.
+
+	CropThresh float64 // Cut beginning of samples below this threshold.
+	RmsTime    float64 // Time period to use to compute sample RMS.
+	RmsLow     float64 // RMS for key 21 (Low A).
+	RmsHigh    float64 // RMS for key 108 (High C).
+	PanLow     float64 // Panning for key 21. -1 is left, 1 is right.
+	PanHigh    float64 // Panning for key 108.
+	GammaAmp   float64 // Amplitude scaling x^gamma.
+	GammaLayer float64 // Layer scaling.
+	VelMult    float64 // Velocity multiplier.
+
+	MixLayers bool // It True, mix layers together.
+	Sustain   bool // Sustain pedal value (0-1).
+
+	// A map from control name to update function.
+	updateMap map[string]func(float64)
+
+	// Bindings for midi controls.
+	midiControls []func(float64)
 }
 
-func NewControls() *Controls {
+func NewControls(sampler *Sampler) *Controls {
 	c := new(Controls)
-	c.LoadDefaults()
-	return c
-}
-
-func (c *Controls) LoadDefaults() {
+	c.sampler = sampler
 	c.Transpose = 0
+	c.PitchBendMax = 1
+	c.RRBorrow = 0
 	c.Tau = 0
 	c.TauCut = 0
 	c.TauFadeIn = 0
@@ -61,16 +73,38 @@ func (c *Controls) LoadDefaults() {
 	c.GammaAmp = 2.2
 	c.GammaLayer = 1.0
 	c.VelMult = 1.0
-	c.PitchBendMax = 1
-	c.RRBorrow = 0
 	c.MixLayers = false
-	c.di = 1.0
 	c.Sustain = false
+
+	c.updateMap = map[string]func(float64){
+		"Transpose":    c.UpdateTranspose,
+		"PitchBendMax": c.UpdatePitchBendMax,
+		"Tau":          c.UpdateTau,
+		"TauCut":       c.UpdateTauCut,
+		"TauFadeIn":    c.UpdateTauFadeIn,
+		"CropThresh":   c.UpdateCropThresh,
+		"RmsTime":      c.UpdateRmsTime,
+		"RmsLow":       c.UpdateRmsLow,
+		"RmsHigh":      c.UpdateRmsHigh,
+		"PanLow":       c.UpdatePanLow,
+		"PanHigh":      c.UpdatePanHigh,
+		"GammaAmp":     c.UpdateGammaAmp,
+		"GammaLayer":   c.UpdateGammaLayer,
+		"VelMult":      c.UpdateVelMult,
+		"MixLayers":    c.UpdateMixLayers,
+		"Sustain":      c.UpdateSustain,
+	}
+
+	c.midiControls = make([]func(float64), 128)
+
+	return c
+}
+
+func (c *Controls) LoadDefaults() {
+	println("LoadDefaults: REMOVE FUNCTION.")
 }
 
 func (c *Controls) LoadFrom(path string) error {
-	c.LoadDefaults()
-
 	// Open the file.
 	f, err := os.Open(path)
 	if err != nil {
@@ -83,10 +117,68 @@ func (c *Controls) LoadFrom(path string) error {
 		return err
 	}
 
+	// Some values have processing applied.
 	c.UpdateTau(c.Tau)
 	c.UpdateTauCut(c.TauCut)
 	c.UpdateTauFadeIn(c.TauFadeIn)
-	
+
+	return nil
+}
+
+type ctrlCfg struct {
+	Name  string
+	Num   int8
+	Min   float64
+	Max   float64
+	Gamma float64
+}
+
+func (c *Controls) LoadMidiConfig() error {
+	// Get the control config path.
+	usr, err := user.Current()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(usr.HomeDir, ".jlsampler/controls.js")
+
+	// Open the file.
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	// Decode the file.
+	decoder := json.NewDecoder(f)
+	configs := make([]ctrlCfg, 128)
+	if err = decoder.Decode(&configs); err != nil {
+		return err
+	}
+
+	// Load configs.
+	for _, cfg := range configs {
+		err = c.bind(cfg.Name, cfg.Num, cfg.Min, cfg.Max, cfg.Gamma)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controls) bind(name string, num int8, min, max, gamma float64) error {
+	if num > 119 || num < 0 {
+		return errors.New("Midi control number out of range.")
+	}
+
+	fn, ok := c.updateMap[name]
+	if !ok {
+		return errors.New("Unknown control: " + name)
+	}
+
+	c.midiControls[num] = func(x float64) {
+		fn(min + (max-min)*math.Pow(x, gamma))
+	}
+
 	return nil
 }
 
@@ -110,29 +202,33 @@ func (c *Controls) Print() {
 	Println("MixLayers:   ", c.MixLayers)
 }
 
-func (c *Controls) CalcAmp(key int, velocity, rms float64) float64 {
+func (c *Controls) CalcAmp(key int, velocity, rms float64) float32 {
+	if rms <= 0 {
+		Println("CalcAmp: RMS value is <= 0.")
+		return 0
+	}
 	m := (c.RmsHigh - c.RmsLow) / 87.0
 	amp := (c.RmsLow + m*(float64(key)-21)) / rms
-	return amp * math.Pow(velocity, c.GammaAmp)
+	return float32(amp * math.Pow(velocity, c.GammaAmp))
 }
 
-func (c *Controls) CalcPan(key int) float64 {
+func (c *Controls) CalcPan(key int) float32 {
 	m := (c.PanHigh - c.PanLow) / 87.0
-	return c.PanLow + m*(float64(key)-21)
+	return float32(c.PanLow + m*(float64(key)-21))
 }
 
 func (c *Controls) Run() {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	var err error
 	var line string
-	
+
 	for {
 		if line, err = reader.ReadString('\n'); err != nil {
 			Println("Error reading input:", err)
 			return
 		}
-		line = line[:len(line) - 1] // Strip \n.
+		line = line[:len(line)-1] // Strip \n.
 		if len(line) > 0 {
 			if line == "print" {
 				c.Print()
@@ -147,69 +243,35 @@ func (c *Controls) Run() {
 
 func (c *Controls) ProcessCommand(cmd string) {
 	sp := strings.Split(cmd, "=")
-	
+	if len(sp) != 2 {
+		Println("No command value given:", cmd)
+		return
+	}
+
+	// Get command and value.
 	cmd = sp[0]
-	
-	// Load and Unload commands are strings. 
-	if cmd == "Load" {
-		if err := sampler.Load(sp[1]); err != nil {
-			Println("Error loading samples:", err)
-		}
-		return
-	} else if cmd == "Unload" {
-		sampler.Unload()
-		return
-	}
-	
-	// Convert bools to floats. 
-	sp[1] = strings.ToLower(sp[1])
-	if sp[1] == "true" {
-		sp[1] = "1"
-	} else if sp[1] == "false" {
-		sp[1] = "0"
-	}
-	
-	// All other commands take floats. 
 	val, err := strconv.ParseFloat(sp[1], 64)
 	if err != nil {
 		Println("Couldn't parse numerical value:", cmd, val, err)
 		return
 	}
 
-	switch cmd {
-	case "Transpose":
-		c.UpdateTranspose(val)
-	case "Tau":
-		c.UpdateTau(val)
-	case "TauCut":
-		c.UpdateTauCut(val)
-	case "TauFadeIn":
-		c.UpdateTauFadeIn(val)
-	case "CropThresh":
-		c.UpdateCropThresh(val)
-	case "RmsTime":
-		c.UpdateRmsTime(val)
-	case "RmsLow":
-		c.UpdateRmsLow(val)
-	case "RmsHigh":
-		c.UpdateRmsHigh(val)
-	case "PanLow":
-		c.UpdatePanLow(val)
-	case "PanHigh":
-		c.UpdatePanHigh(val)
-	case "GammaAmp":
-		c.UpdateGammaAmp(val)
-	case "GammaLayer":
-		c.UpdateGammaLayer(val)
-	case "VelMult":
-		c.UpdateVelMult(val)
-	case "PitchBendMax":
-		c.UpdatePitchBendMax(val)
-	case "MixLayers":
-		c.UpdateMixLayers(val)
-	default:
+	f, ok := c.updateMap[cmd]
+	if !ok {
 		Println("Unknown command:", cmd)
 		return
+	}
+
+	f(val)
+}
+
+func (c *Controls) ProcessMidi(num int32, value float64) {
+	if num < 0 || num > 119 {
+		Println("Midi control message out of range:", num)
+		return
+	}
+	if fn := c.midiControls[num]; fn != nil {
+		fn(value)
 	}
 }
 
@@ -232,19 +294,20 @@ func (c *Controls) UpdateTauCut(x float64) {
 
 func (c *Controls) UpdateTauFadeIn(x float64) {
 	c.TauFadeIn = computeTau(x)
+	c.NFadeIn = float32(math.Log(ampCutoff) / math.Log(c.TauFadeIn))
 	Println("TauFadeIn:", x)
 }
 
 func (c *Controls) UpdateCropThresh(x float64) {
 	c.CropThresh = x
 	Println("CropThresh:", x)
-	sampler.UpdateCropThresh()
+	c.sampler.UpdateCropThresh()
 }
 
 func (c *Controls) UpdateRmsTime(x float64) {
 	c.RmsTime = x
 	Println("RmsTime:", x)
-	sampler.UpdateRms()
+	c.sampler.UpdateRms()
 }
 
 func (c *Controls) UpdateRmsLow(x float64) {
@@ -295,9 +358,3 @@ func (c *Controls) UpdateMixLayers(x float64) {
 func (c *Controls) UpdateSustain(x float64) {
 	c.Sustain = x > 0.5
 }
-
-func (c *Controls) UpdatePitchBend(x float64) {
-	c.di = float32(math.Pow(2.0, x*float64(c.PitchBendMax)/12.0))
-	Println("di:", x, c.di)
-}
-

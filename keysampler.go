@@ -7,46 +7,38 @@ import (
 
 // ----------------------------------------------------------------------------
 type KeySampler struct {
-	Key     int            // The midi key number.
-	on      bool           // True if key is on (down).
-	layers  []*SampleLayer // The sample layers.
+	controls *Controls      // Controls!
+	Key      int            // The midi key number.
+	on       bool           // True if key is on (down).
+	layers   []*SampleLayer // The sample layers.
 
-	// A slice of playing samples. The length is the number of playing samples,
-	// and the capacity is config.Poly. 
+	// A slice of playing samples. The length is the number of playing samples.
 	playing []*PlayingSample
 }
 
-func NewKeySampler(key, numLayers int) *KeySampler {
+func NewKeySampler(controls *Controls, key int) *KeySampler {
 	ks := new(KeySampler)
+	ks.controls = controls
 	ks.Key = key
 	ks.on = false
-
-	// Make sample layers.
-	ks.layers = make([]*SampleLayer, numLayers)
-	for i := 0; i < numLayers; i++ {
-		ks.layers[i] = new(SampleLayer)
-	}
-
-	ks.playing = make([]*PlayingSample, 0, config.Poly)
-
+	ks.playing = make([]*PlayingSample, 0, 128)
 	return ks
 }
 
-func (ks *KeySampler) HasMissingLayers() bool {
-	for _, sl := range ks.layers {
-		if sl.NumSamples() == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func (ks *KeySampler) Copy() *KeySampler {
-	ks2 := NewKeySampler(ks.Key, len(ks.layers))
+	ks2 := NewKeySampler(ks.controls, ks.Key)
 	for i := 0; i < len(ks.layers); i++ {
-		ks2.layers[i] = ks.layers[i].Copy()
+		ks2.layers = append(ks2.layers, ks.layers[i].Copy())
 	}
 	return ks2
+}
+
+func (ks *KeySampler) AddLayer() {
+	ks.layers = append(ks.layers, new(SampleLayer))
+}
+
+func (ks *KeySampler) NumLayers() int {
+	return len(ks.layers)
 }
 
 func (ks *KeySampler) AddSample(sample *Sample, layer int) {
@@ -54,27 +46,28 @@ func (ks *KeySampler) AddSample(sample *Sample, layer int) {
 }
 
 func (ks *KeySampler) BorrowFrom(ks2 *KeySampler) error {
-	// Make sure both KeySamplers have the same number of layers. 
+	// Make sure both KeySamplers have the same number of layers.
 	if len(ks.layers) != len(ks2.layers) {
 		return errors.New("Borrowing requires the same number of layers.")
 	}
-	
+
 	Println("Borrowing samples:", ks.Key, "<-", ks2.Key)
-	
-	// Compute the amount of stretching necessary. 
+
+	// Compute the amount of stretching necessary.
 	semitones := ks.Key - ks2.Key
-	
+
 	for i := 0; i < len(ks.layers); i++ {
 		layer := ks.layers[i]
 		layer2 := ks2.layers[i]
 		layer.BorrowFrom(layer2, semitones)
 	}
-	
+
 	return nil
 }
 
 func (ks *KeySampler) Transpose(trans int) *KeySampler {
 	ks2 := new(KeySampler)
+	ks2.controls = ks.controls
 	ks2.Key = ks.Key + trans
 
 	ks2.layers = make([]*SampleLayer, 0)
@@ -86,8 +79,9 @@ func (ks *KeySampler) Transpose(trans int) *KeySampler {
 	return ks2
 }
 
+// TODO: Clean up this code.
 func (ks *KeySampler) getPlayingSample(velocity float64) *PlayingSample {
-	if controls.MixLayers {
+	if ks.controls.MixLayers {
 		return ks.getPlayingSampleMix(velocity)
 	} else {
 		return ks.getPlayingSampleBasic(velocity)
@@ -97,11 +91,11 @@ func (ks *KeySampler) getPlayingSample(velocity float64) *PlayingSample {
 func (ks *KeySampler) getPlayingSampleBasic(velocity float64) *PlayingSample {
 	numLayers := int64(len(ks.layers))
 
-	// Get the layer. 
+	// Get the layer.
 	layer := int64(
-		float64(numLayers) * math.Pow(velocity, controls.GammaLayer))
+		float64(numLayers) * math.Pow(velocity, ks.controls.GammaLayer))
 
-	if layer > numLayers - 1 {
+	if layer > numLayers-1 {
 		layer = numLayers - 1
 	}
 
@@ -109,58 +103,51 @@ func (ks *KeySampler) getPlayingSampleBasic(velocity float64) *PlayingSample {
 	_, sample := ks.layers[layer].GetSample(-1)
 
 	// Compute the amplitude of the sample.
-	amp := controls.CalcAmp(ks.Key, velocity, sample.Rms)
+	amp := ks.controls.CalcAmp(ks.Key, velocity, sample.Rms)
 
 	// Compute the pan.
-	pan := controls.CalcPan(ks.Key)
-	
-	return NewPlayingSample(sample, nil, amp, 0, pan, 0)
+	pan := ks.controls.CalcPan(ks.Key)
+
+	return NewPlayingSample(ks.controls, sample, nil, amp, 0, pan, 0)
 }
 
 func (ks *KeySampler) getPlayingSampleMix(velocity float64) *PlayingSample {
 	numLayers := int64(len(ks.layers))
 
-	layerVal := float64(numLayers-1) * math.Pow(velocity, controls.GammaLayer)
+	layerVal := float32(
+		float64(numLayers-1) * math.Pow(velocity, ks.controls.GammaLayer))
+
 	layer1 := int64(layerVal)
 	layer2 := layer1 + 1
-	
-	if layer2 > numLayers - 1 {
+
+	if layer2 > numLayers-1 {
 		layer2 = numLayers - 1
 	}
-	
-	mix := layerVal - float64(layer1)
-	
-	// Samples. 
+
+	mix := layerVal - float32(layer1)
+
+	// Samples.
 	sIdx, sample1 := ks.layers[layer1].GetSample(-1)
 	_, sample2 := ks.layers[layer2].GetSample(sIdx)
-	
-	// Amps. 
-	amp1 := controls.CalcAmp(ks.Key, velocity, sample1.Rms)
-	amp2 := controls.CalcAmp(ks.Key, velocity, sample2.Rms)
-	
-	// Compute pan. 
-	pan := controls.CalcPan(ks.Key)
-	
-	return NewPlayingSample(sample1, sample2, amp1, amp2, pan, mix)
+
+	// Amps.
+	amp1 := ks.controls.CalcAmp(ks.Key, velocity, sample1.Rms)
+	amp2 := ks.controls.CalcAmp(ks.Key, velocity, sample2.Rms)
+
+	// Compute pan.
+	pan := ks.controls.CalcPan(ks.Key)
+
+	return NewPlayingSample(ks.controls, sample1, sample2, amp1, amp2, pan, mix)
 }
 
 func (ks *KeySampler) NoteOn(velocity float64) {
 	ks.on = true
 
-	// Kick a sound out of the queue if we have to.
-	if len(ks.playing) == cap(ks.playing) {
-		for i := 1; i < len(ks.playing); i++ {
-			ks.playing[i-1] = ks.playing[i]
-		}
-		ks.playing = ks.playing[:len(ks.playing) - 1]
-		Println("Sound stopped. Not enough polyphony.")
-	}
-
 	// Loop through playing samples. All currently playing samples should
 	// decay with constant tauCut.
-	if controls.TauCut != 0 {
-		for _, ps := range(ks.playing) {
-			ps.tau = controls.TauCut
+	if ks.controls.TauCut != 0 {
+		for _, ps := range ks.playing {
+			ps.tau = float32(ks.controls.TauCut)
 		}
 	}
 
@@ -172,16 +159,16 @@ func (ks *KeySampler) NoteOff() {
 	ks.on = false
 
 	// If sustaining, there's nothing to do.
-	if controls.Sustain {
+	if ks.controls.Sustain {
 		return
 	}
 
 	// Loop through playing sounds. If any aren't decaying, then
 	// they need to have tau set.
-	if controls.Tau != 0 {
+	if ks.controls.Tau != 0 {
 		for _, ps := range ks.playing {
 			if ps.tau == 0 {
-				ps.tau = controls.Tau
+				ps.tau = float32(ks.controls.Tau)
 			}
 		}
 	}
@@ -191,23 +178,23 @@ func (ks *KeySampler) HasData() bool {
 	return len(ks.playing) != 0
 }
 
-func (ks *KeySampler) WriteOutput(buf *Sound) {
+func (ks *KeySampler) WriteOutput(buf *Sound, di []float32) {
 	var ps *PlayingSample
-		
-	// Check for sustain pedal depressed. 
-	ps = ks.playing[len(ks.playing) - 1]
-	if controls.Sustain && ps.tau != 0 {
+
+	// Check for sustain pedal depressed.
+	ps = ks.playing[len(ks.playing)-1]
+	if ks.controls.Sustain && ps.tau != 0 {
 		ps.tau = 0
 	}
-		
+
 	iIn := 0
 	for _, ps = range ks.playing {
 		// Check for sustain pedal lift.
-		if !ks.on && !controls.Sustain && ps.tau == 0 {
-			ps.tau = controls.Tau
+		if !ks.on && !ks.controls.Sustain && ps.tau == 0 {
+			ps.tau = float32(ks.controls.Tau)
 		}
 
-		if ps.WriteOutput(buf) {
+		if ps.WriteOutput(buf, di) {
 			ks.playing[iIn] = ps
 			iIn++
 		}
@@ -216,15 +203,14 @@ func (ks *KeySampler) WriteOutput(buf *Sound) {
 	ks.playing = ks.playing[:iIn]
 }
 
-func (ks *KeySampler) UpdateCropThresh() {
+func (ks *KeySampler) UpdateCropThresh(thresh float64) {
 	for _, sl := range ks.layers {
-		sl.UpdateCropThresh()
+		sl.UpdateCropThresh(thresh)
 	}
 }
 
-func (ks *KeySampler) UpdateRms() {
+func (ks *KeySampler) UpdateRms(rmsTime float64) {
 	for _, sl := range ks.layers {
-		sl.UpdateRms()
+		sl.UpdateRms(rmsTime)
 	}
 }
-
