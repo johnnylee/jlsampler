@@ -1,0 +1,234 @@
+<html>
+<head><title>JLSampler</title></head>
+<body>
+
+<h2>JLSampler: Documentation</h2>
+
+<h3>Quick Start</h3>
+
+<p>
+<b>(a)</b>
+Create a directory in your home folder named <code>.jlsampler</code>.  
+</p>
+
+<p>
+<b>(b)</b>
+Create the file <code>~/.jlsampler/config.js</code> with content:
+</p>
+
+<pre>
+{
+    "MidiIn": "20;0"
+}
+</pre>
+
+<p>
+You can find your device and port number by running the command 
+<code>aconnect -io</code>. The format of the string is client:port. You can 
+manually connect ports using the <code>aconnect</code> command. In fact, 
+JLSampler simply calls aconnect with the given string when it starts. 
+</p>
+
+<p>
+<b>(c)</b>
+Create the file <code>~/.jlsampler/controls.js</code> with content:
+</p>
+
+<pre>
+[
+    {
+        "Name": "Sustain",
+        "Num": 64,
+        "Min": 0,
+        "Max": 1,
+        "Gamma": 1
+    }
+]
+</pre>
+
+<p>
+If you are using a standard midi keyboard or digital paino, this will
+bind your sustain pedal to the <code>Sustain</code> control in JLSampler. 
+</p>
+
+<p>
+<b>(d)</b>
+Download a <a href="samples.html">sample set</a> and extract the files to 
+a location of your choice. Be sure to maintain the directory structure 
+when you extract the files. 
+</p>
+
+<p>
+<b>(e)</b>
+Make sure <code>jackd</code> is running, then change into the sample-set 
+directory and run:
+</p>
+
+<pre>
+jlsampler . 
+</pre>
+
+<p>
+<b>(f)</b>
+Use <code>qjackctl</code>  to connect the sampler's outputs to your 
+system's outputs.
+</p>
+
+<h3>Controls</h3>
+
+<p>
+Controls can be modified from the command line using the syntax 
+<code>Control=Value</code> where the value is a floating point number. 
+Controls can also be bound to midi controls through the configuration 
+file. 
+</p>
+
+<dl>
+
+<dt><b>Transpose</b> (0)</dt>
+<dd>Added to midi note key values.</dd>
+
+<dt><b>PitchBendMax</b> (1)</dt>
+<dd>The maximum pitch bend in semitones.</dd>
+
+<dt><b>RRBorrow</b> (0)</dt>
+<dd>Borrow notes from adjacent samples up to the given distance.
+This is applied when loading, and can't be called after that. 
+</dd>
+
+<dt><b>Tau</b> (0)</dt>
+<dd>The key-off decay time constant in seconds. 0 disables.</dd>
+
+<dt><b>TauCut</b> (0)</dt>    
+<dd>The key-repeat or cut decay time constant in seconds. 0 disables.</dd>
+
+<dt><b>TauFadeIn</b> (0)</dt>
+<dd>The sample fade-in time constant in seconds. 0 disables.</dd>
+
+<dt><b>CropThresh</b> (0)</dt>
+<dd>Crop the start of samples below this threshold. 
+This is in the range [0, 1].
+</dd>
+
+<dt><b>RmsTime</b> (0.25)</dt>
+<dd>Time in seconds over which to compute the sample RMS value. 
+This is used to normalize the amplitude of samples to provide smooth 
+transitions between velocity layers and across the keyboard.
+</dd>
+
+<dt><b>RmsLow</b> (0.20)</dt>
+<dd>Peak RMS value for key 21</b> (Low A) on a keyboard. For a piano a good 
+place to start is 0.2. The RMS value for each note is linearly interpolated
+across the keyboard. This provides a smooth response when moving from 
+low to high notes on the keyboard, and matches fairly well with what 
+I've measured from a yamaha digital piano.
+</dd>
+
+<dt><b>RmsHigh</b> (0.04)</dt>
+<dd>Peak RMS value for key 108 (High C) on a keyboard. For a piano a 
+good place to start is 0.04.
+</dd>
+
+<dt><b>PanLow</b> (0)</dt>
+<dd>Pan value for key 21 on 88 key keyboard (low A). -1 is hard left and 1 
+is hard right. The pan value for each note is linearly interpolated from 
+the `PanLow` and `PanHigh` values.
+</dd>
+
+<dt><b>PanHigh</b> (0)</dt>
+<dd>Like PanLow but for key 108 (high C).</dd>
+
+<dt><b>GammaAmp</b> (2.2)</dt>
+<dd>The scaling of volume with key velocity. If velocity is scaled from zero 
+to one, then the amplitude is scaled like velocity^gamma. I've found 2.2 to
+be a good starting value. I found that value by measuing the 
+amplitude -vs- velocity curve of a Yamaha stage paino.
+</dd>
+
+<dt><b>GammaLayer</b> (1)</dt>
+<dd>Just like GammaAmp, but for selecting the velocity layer (sample). 
+This will really depend on how the samples were captured. I've seen sample 
+sets with gamma on both sides of 1.
+</dd>
+
+<dt><b>VelMult</b> (1)</dt>
+<dd>Multiplier for incoming midi velocity. I have one keyboard that 
+I have a very hard time reaching velocity levels of 100 out of 127.
+</dd>
+
+<dt><b>MixLayers</b> (0)</dt>
+<dd>If true, the sampler will mix smoothly between velocity layers. This 
+can be useful for certain types of prepared samples.
+</dd>
+
+<dt><b>Sustain</b> (0)</dt>
+<dd>This should be connected to your sustain pedal.</dd>
+
+</dl>
+
+<h3>Configuration files</h3>
+
+<p>
+Configuration files are stored in <code>~/.jlsampler</code>. 
+Currently there are two files: 
+<code>config.js</code> and <code>controls.js</code>. These are both JSON files.
+</p>
+
+<h4>config.js</h4>
+
+<p>
+<code>config.js</code> currently contains a single configuration variable. 
+</p>
+
+<pre>
+{
+    "MidiIn": "20:0",
+}
+</pre>
+
+<h4>controls.js</h4>
+<p>
+<code>controls.js</code> maps midi controls to the controls listed above. 
+Below is an example file with two bindings. Other controls are bound in the 
+same manner. 
+```
+</p>
+
+<pre>
+[
+    {
+        "Name": "Sustain", 
+        "Num": 64,
+        "Min": 0,
+        "Max": 1,
+        "Gamma": 1.0
+    }, {
+        "Name": "PitchBendMax",
+        "Num": 11,
+        "Min": 1,
+        "Max": 12,
+        "Gamma": 1
+    }
+]
+</pre>
+
+<h3>Sample Sets</h3>
+
+<p>
+A sample set is contained in a directory with the following format:
+</p>
+
+<pre>
+my-sample-set/
+    samples/    # Contains samples.
+    defaults.js # Default control values for the sample set. 
+    tuning.js   # Tuning information for each file. 
+</pre>
+
+<p>
+Samples are stored as flac files, and have names of the form:
+<code>on-[note]-[layer]-[variation].flac</code>.
+</p>
+
+</body>
+</html>

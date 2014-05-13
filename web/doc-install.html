@@ -1,0 +1,51 @@
+<html>
+<head><title>JLSampler</title></head>
+<body>
+
+<h2>JLSampler: Installation Guide</h2>
+
+<h3>Installing from source</h3>
+
+<p>
+JLSampler is written in <a href="http://golang.org/">Go</a>. Installing the 
+Go compiler is beyond the scope of this document. See the previous link 
+for details. 
+</p>
+
+<p>
+JLSampler depends on 
+<a href="https://xiph.org/flac/">flac</a>, 
+<a href="http://jackaudio.org/">JACK</a>, and 
+<a href="http://www.alsa-project.org">ALSA</a>.
+In order to build from source you'll need the development packages available
+for your system. 
+</p>
+
+<p>
+With the prerequisets installed, use the <code>go get</code> command to 
+fetch the source.
+</p>
+
+<pre>
+go get github.com/johnnylee/jlsampler
+</pre>
+
+<p>
+Inside the directory <code>johnnylee/jlsampler/jlsampler</code> 
+run <code>go build</code> to build the binary. 
+</p>
+
+<h3>Installing a binary</h3>
+
+<p>
+The distributed binaries should run on your system if you have the appropriate
+libraries installed: flac, JACK, and ALSA. 
+</p>
+
+<p>
+See the <a href="documentation.html">documentation</a> page for further 
+details. 
+</p>
+
+</body>
+</html>

@@ -4,23 +4,6 @@ import (
 	"math"
 )
 
-// ----------------------------------------------------------------------------
-func absMaxSampleVal(s *Sample, idx int) float64 {
-	var val, max float64
-
-	val = math.Abs(float64(s.L[idx]))
-	if val > max {
-		max = val
-	}
-
-	val = math.Abs(float64(s.R[idx]))
-	if val > max {
-		max = val
-	}
-
-	return max / maxVal16
-}
-
 // See http://paulbourke.net/miscellaneous/interpolation/.
 // Using nearest neighbor instead of linear interpolation sounds aweful.
 // After trying several interpolation methods, inclusing cubic, cosine,
@@ -85,12 +68,32 @@ func (s *Sample) Stretched(semitones float64) *Sample {
 	return sNew
 }
 
+func (s *Sample) FakeLayer(order int) *Sample {
+	sNew := NewSample(s.Len)
+	copy(sNew.L, s.L)
+	copy(sNew.R, s.R)
+	sNew.Len = len(sNew.L)
+	rcLowPass(sNew.L, 8.0, order)
+	rcLowPass(sNew.R, 8.0, order)
+	return sNew
+}
+
 func (s *Sample) UpdateCropThresh(thresh float64) {
-	for s.Idx0 = 0; s.Idx0 < s.Len; s.Idx0++ {
-		if absMaxSampleVal(s, s.Idx0) >= thresh {
-			return
+	th := int16(thresh * maxVal16)
+	var i int
+	
+	for i = 0; i < s.Len; i++ {
+		if (s.L[i] >= th || 
+			s.L[i] <= -th || 
+			s.R[i] >= th || 
+			s.R[i] <= -th) {
+			break
 		}
 	}
+	
+	// The reason this is assigned here and not in the loop is to that it's
+	// effectively an atomic change (on x86 anyway). 
+	s.Idx0 = i
 }
 
 func (s *Sample) UpdateRms(rmsTime float64) {

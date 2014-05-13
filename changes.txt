@@ -1,0 +1,6 @@
+
+0.90 2014-05-11
+  o Initial public release.
+
+0.91 ????-??-??
+  o Added control to enhance single-layer sample sets: FakeLayerFilt. 

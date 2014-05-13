@@ -27,9 +27,11 @@ type Controls struct {
 	sampler *Sampler // For callbacks.
 	NFadeIn float32  // Fade-in length in samples. Computed from TauFadeIn.
 
-	Transpose    int8 // Added to midi note on input.
-	PitchBendMax int8 // Maximum pitch bend in semitones.
-	RRBorrow     int8 // Distance to borrow round-robbin samples.
+	Transpose     int8 // Added to midi note on input.
+	PitchBendMax  int8 // Maximum pitch bend in semitones.
+
+	RRBorrow      int8 // Distance to borrow round-robbin samples.
+	FakeLayerFilt int8 // Order of filter to use to generate fake lower layer.
 
 	Tau       float64 // Key-up decay time constant.
 	TauCut    float64 // Key-repeat or cut decay time constant.
@@ -61,6 +63,7 @@ func NewControls(sampler *Sampler) *Controls {
 	c.Transpose = 0
 	c.PitchBendMax = 1
 	c.RRBorrow = 0
+	c.FakeLayerFilt = 0
 	c.Tau = 0
 	c.TauCut = 0
 	c.TauFadeIn = 0
@@ -184,22 +187,23 @@ func (c *Controls) bind(name string, num int8, min, max, gamma float64) error {
 
 func (c *Controls) Print() {
 	Println("--------------------------------------------------")
-	Println("Transpose:   ", c.Transpose)
-	Println("Tau:         ", -1/(math.Log(c.Tau)*sampleRate))
-	Println("TauCut:      ", -1/(math.Log(c.TauCut)*sampleRate))
-	Println("TauFadeIn:   ", -1/(math.Log(c.TauFadeIn)*sampleRate))
-	Println("CropThresh:  ", c.CropThresh)
-	Println("RmsTime:     ", c.RmsTime)
-	Println("RmsLow:      ", c.RmsLow)
-	Println("RmsHigh:     ", c.RmsHigh)
-	Println("PanLow:      ", c.PanLow)
-	Println("PanHigh:     ", c.PanHigh)
-	Println("GammaAmp:    ", c.GammaAmp)
-	Println("GammaLayer:  ", c.GammaLayer)
-	Println("VelMult:     ", c.VelMult)
-	Println("PitchBendMax:", c.PitchBendMax)
-	Println("RRBorrow:    ", c.RRBorrow)
-	Println("MixLayers:   ", c.MixLayers)
+	Println("Transpose:    ", c.Transpose)
+	Println("RRBorrow:     ", c.RRBorrow)
+	Println("FakeLayerFilt:", c.FakeLayerFilt)
+	Println("Tau:          ", -1/(math.Log(c.Tau)*sampleRate))
+	Println("TauCut:       ", -1/(math.Log(c.TauCut)*sampleRate))
+	Println("TauFadeIn:    ", -1/(math.Log(c.TauFadeIn)*sampleRate))
+	Println("CropThresh:   ", c.CropThresh)
+	Println("RmsTime:      ", c.RmsTime)
+	Println("RmsLow:       ", c.RmsLow)
+	Println("RmsHigh:      ", c.RmsHigh)
+	Println("PanLow:       ", c.PanLow)
+	Println("PanHigh:      ", c.PanHigh)
+	Println("GammaAmp:     ", c.GammaAmp)
+	Println("GammaLayer:   ", c.GammaLayer)
+	Println("VelMult:      ", c.VelMult)
+	Println("PitchBendMax: ", c.PitchBendMax)
+	Println("MixLayers:    ", c.MixLayers)
 }
 
 func (c *Controls) CalcAmp(key int, velocity, rms float64) float32 {

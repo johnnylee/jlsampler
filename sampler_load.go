@@ -93,11 +93,7 @@ func (s *Sampler) loadKey(
 			*ok = false
 			return
 		}
-
-		for ks.NumLayers() < layer+1 {
-			ks.AddLayer()
-		}
-
+		
 		sample, err := LoadFlac(path)
 		if err != nil {
 			Println("Failed to load sample:", path, "\nError:", err)
@@ -110,13 +106,32 @@ func (s *Sampler) loadKey(
 			sample = sample.Stretched(semitones)
 		}
 
-		ks.AddSample(sample, layer)
+		s.loadKeySample(sample, layer, ks)
 	}
 
-	// TODO: Force garbage collection here?
 	Println("Loaded key:", key)
 	s.keySamplers[key] = ks
-	runtime.GC()
+	runtime.GC() // Force garbage collection here? 
+}
+
+func (s *Sampler) loadKeySample(sample *Sample, layer int, ks *KeySampler) {
+	if s.controls.FakeLayerFilt != 0 { 
+		// Generate fake layer. 
+		// Must have two layers. 
+		for ks.NumLayers() < 2 {
+			ks.AddLayer()
+		}
+		
+		fakeSample := sample.FakeLayer(int(s.controls.FakeLayerFilt))
+		ks.AddSample(fakeSample, 0)
+		ks.AddSample(sample, 1)
+		return
+	} else {
+		for ks.NumLayers() < layer + 1 {
+			ks.AddLayer()
+		}
+		ks.AddSample(sample, layer)
+	}
 }
 
 func (s *Sampler) borrowSamples() {
