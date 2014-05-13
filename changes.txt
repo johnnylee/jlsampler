@@ -4,3 +4,5 @@
 
 0.91 ????-??-??
   o Added control to enhance single-layer sample sets: FakeLayerFilt. 
+  o Fixed crash on malformed json files. 
+  o 

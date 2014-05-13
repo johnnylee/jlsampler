@@ -24,6 +24,7 @@ func RunApp() {
 	sampler, err := NewSampler(name, path)
 	if err != nil {
 		Println("Error:", err)
+		return
 	}
 
 	sampler.Run()
