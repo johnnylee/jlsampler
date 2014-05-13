@@ -54,12 +54,6 @@ func NewSampler(name, path string) (*Sampler, error) {
 		return nil, err
 	}
 
-	// Create jackClient.
-	s.jackClient, err = jackclient.New(name, 0, 2)
-	if err != nil {
-		return nil, err
-	}
-
 	// The buffer doesn't need any size because it will use the
 	// slices passed in by the jack callback.
 	s.buf = NewSound(0)
@@ -74,6 +68,12 @@ func NewSampler(name, path string) (*Sampler, error) {
 
 	// Update crop threshold. This will also update the RMS value.
 	s.UpdateCropThresh()
+
+	// Create jackClient.
+	s.jackClient, err = jackclient.New(name, 0, 2)
+	if err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }

@@ -1,7 +1,6 @@
 TODO:
 
 0.91: 
-o Start jack client after samples are all loaded. 
 o Adjust to jack's sample rate: On startup, set base di.
 o Quit as jack client gracefully.
 o Handle out-of-range values in controls.Update* functions.
