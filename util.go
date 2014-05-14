@@ -9,7 +9,7 @@ import (
 // ----------------------------------------------------------------------------
 // Global constants.
 const (
-	version    = 0.90    // Version number.
+	version    = 0.91    // Version number.
 	sampleRate = 48000   // Fixed sample rate.
 	maxVal16   = 32767   // 16-bit maximum sample value.
 	maxVal24   = 8388607 // 24-bit maximum sample value.

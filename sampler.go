@@ -14,6 +14,7 @@ type Sampler struct {
 	keySamplers  []*KeySampler // Per key (128).
 
 	buf *Sound
+	diBase float32
 	di  []float32
 }
 
@@ -74,6 +75,9 @@ func NewSampler(name, path string) (*Sampler, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Get output sample rate. 
+	s.diBase = sampleRate / float32(s.jackClient.GetSampleRate())
 
 	return s, nil
 }
@@ -141,6 +145,7 @@ func (s *Sampler) PitchBendEvent(value float64) {
 
 // Jack processing callback.
 func (s *Sampler) JackProcess(bufIn, bufOut [][]float32) error {
+	// Can we just remove this lock? We'll see. 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -158,7 +163,7 @@ func (s *Sampler) JackProcess(bufIn, bufOut [][]float32) error {
 	}
 
 	for i, _ := range s.di {
-		s.di[i] = 1
+		s.di[i] = s.diBase
 	}
 
 	for _, ks := range s.keySamplers {
