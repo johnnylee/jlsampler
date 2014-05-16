@@ -1,11 +1,13 @@
 TODO:
 
 0.91:
-o Handle out-of-range values in controls.Update* functions.
-o Add Amp control.
-o Test FakeLayerFilt code.
+X FakeLayerFilt -> FakeLayerRC (bool)
+o Handle out-of-range values in controls.Update* functions
+o Add Amp control
 
-o Quit as jack client gracefully.
-o Eliminate pointers where appropriate for faster GC (?).
-o Loading unpitched (drum) samples and mapping to keys (?).
-o Pitch bend.
+1.1:
+o Remove mutex lock in jack callback (bad form)
+o Quit as jack client more gracefully
+o Pitch bend
+o Eliminate pointers where appropriate for faster GC (?)
+o Loading unpitched (drum) samples and mapping to keys (?)

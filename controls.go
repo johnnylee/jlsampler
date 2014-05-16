@@ -29,9 +29,7 @@ type Controls struct {
 
 	Transpose     int8 // Added to midi note on input.
 	PitchBendMax  int8 // Maximum pitch bend in semitones.
-
 	RRBorrow      int8 // Distance to borrow round-robbin samples.
-	FakeLayerFilt int8 // Order of filter to use to generate fake lower layer.
 
 	Tau       float64 // Key-up decay time constant.
 	TauCut    float64 // Key-repeat or cut decay time constant.
@@ -47,8 +45,9 @@ type Controls struct {
 	GammaLayer float64 // Layer scaling.
 	VelMult    float64 // Velocity multiplier.
 
-	MixLayers bool // It True, mix layers together.
-	Sustain   bool // Sustain pedal value (0-1).
+	MixLayers   bool // It True, mix layers together.
+	FakeLayerRC bool // Use RC filter to construct fake zero-layer. 
+	Sustain     bool // Sustain pedal value (0-1).
 
 	// A map from control name to update function.
 	updateMap map[string]func(float64)
@@ -63,7 +62,6 @@ func NewControls(sampler *Sampler) *Controls {
 	c.Transpose = 0
 	c.PitchBendMax = 1
 	c.RRBorrow = 0
-	c.FakeLayerFilt = 0
 	c.Tau = 0
 	c.TauCut = 0
 	c.TauFadeIn = 0
@@ -77,6 +75,7 @@ func NewControls(sampler *Sampler) *Controls {
 	c.GammaLayer = 1.0
 	c.VelMult = 1.0
 	c.MixLayers = false
+	c.FakeLayerRC = false
 	c.Sustain = false
 
 	c.updateMap = map[string]func(float64){
@@ -189,7 +188,6 @@ func (c *Controls) Print() {
 	Println("--------------------------------------------------")
 	Println("Transpose:    ", c.Transpose)
 	Println("RRBorrow:     ", c.RRBorrow)
-	Println("FakeLayerFilt:", c.FakeLayerFilt)
 	Println("Tau:          ", -1/(math.Log(c.Tau)*sampleRate))
 	Println("TauCut:       ", -1/(math.Log(c.TauCut)*sampleRate))
 	Println("TauFadeIn:    ", -1/(math.Log(c.TauFadeIn)*sampleRate))
@@ -204,6 +202,7 @@ func (c *Controls) Print() {
 	Println("VelMult:      ", c.VelMult)
 	Println("PitchBendMax: ", c.PitchBendMax)
 	Println("MixLayers:    ", c.MixLayers)
+	Println("FakeLayerRC:  ", c.FakeLayerRC)
 }
 
 func (c *Controls) CalcAmp(key int, velocity, rms float64) float32 {

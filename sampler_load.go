@@ -115,14 +115,14 @@ func (s *Sampler) loadKey(
 }
 
 func (s *Sampler) loadKeySample(sample *Sample, layer int, ks *KeySampler) {
-	if s.controls.FakeLayerFilt != 0 { 
+	if s.controls.FakeLayerRC { 
 		// Generate fake layer. 
 		// Must have two layers. 
 		for ks.NumLayers() < 2 {
 			ks.AddLayer()
 		}
 		
-		fakeSample := sample.FakeLayer(int(s.controls.FakeLayerFilt))
+		fakeSample := sample.FakeLayerRC()
 		ks.AddSample(fakeSample, 0)
 		ks.AddSample(sample, 1)
 		return

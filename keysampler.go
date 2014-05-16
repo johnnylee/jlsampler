@@ -90,7 +90,7 @@ func (ks *KeySampler) getPlayingSample(velocity float64) *PlayingSample {
 
 func (ks *KeySampler) getPlayingSampleBasic(velocity float64) *PlayingSample {
 	numLayers := int64(len(ks.layers))
-
+	
 	// Get the layer.
 	layer := int64(
 		float64(numLayers) * math.Pow(velocity, ks.controls.GammaLayer))
@@ -98,6 +98,8 @@ func (ks *KeySampler) getPlayingSampleBasic(velocity float64) *PlayingSample {
 	if layer > numLayers-1 {
 		layer = numLayers - 1
 	}
+	
+	println("Layer:", int(127 * velocity), layer)
 
 	// Get a sample from the first layer.
 	_, sample := ks.layers[layer].GetSample(-1)

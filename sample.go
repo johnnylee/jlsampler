@@ -68,13 +68,13 @@ func (s *Sample) Stretched(semitones float64) *Sample {
 	return sNew
 }
 
-func (s *Sample) FakeLayer(order int) *Sample {
+func (s *Sample) FakeLayerRC() *Sample {
 	sNew := NewSample(s.Len)
 	copy(sNew.L, s.L)
 	copy(sNew.R, s.R)
 	sNew.Len = len(sNew.L)
-	rcLowPass(sNew.L, 8.0, order)
-	rcLowPass(sNew.R, 8.0, order)
+	rcLowPass(sNew.L, 20.0, 1)
+	rcLowPass(sNew.R, 20.0, 1)
 	return sNew
 }
 

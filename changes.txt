@@ -3,7 +3,7 @@
   o Initial public release.
 
 0.91 ????-??-??
-  o Added control to enhance single-layer sample sets: FakeLayerFilt.
+  o Added control to enhance single-layer sample sets: FakeLayerRC.
   o Fixed crash on malformed json files.
   o Modified startup so Jack client isn't started until after samples
     are loaded.
