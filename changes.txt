@@ -1,10 +1,12 @@
 
-0.90 2014-05-11
-  o Initial public release.
-
-0.91 ????-??-??
+0.91 2014-05-18
+  o Added amplification control, Amp. 
   o Added control to enhance single-layer sample sets: FakeLayerRC.
   o Fixed crash on malformed json files.
   o Modified startup so Jack client isn't started until after samples
     are loaded.
   o Fixed to work with any output sample rate. 
+
+0.90 2014-05-11
+  o Initial public release.
+

@@ -58,7 +58,7 @@ func NewPlayingSample(
 }
 
 // Add the current sample value to the buffer. Applying fades and panning.
-func (ps *PlayingSample) addCurrentSample(buf *Sound, i int) {
+func (ps *PlayingSample) addCurrentSample(buf *Sound, amp float32, i int) {
 	L, R := ps.sample1.Interp(ps.idx)
 	L *= ps.amp1
 	R *= ps.amp1
@@ -82,11 +82,11 @@ func (ps *PlayingSample) addCurrentSample(buf *Sound, i int) {
 		L *= 1 - ps.pan
 	}
 
-	buf.L[i] += L
-	buf.R[i] += R
+	buf.L[i] += amp * L
+	buf.R[i] += amp * R
 }
 
-func (ps *PlayingSample) WriteOutput(buf *Sound, di []float32) bool {
+func (ps *PlayingSample) WriteOutput(buf *Sound, amp, di []float32) bool {
 	for i, _ := range buf.L {
 		// Update decay amplitude.
 		if ps.tau != 0 {
@@ -106,7 +106,7 @@ func (ps *PlayingSample) WriteOutput(buf *Sound, di []float32) bool {
 			}
 		}
 
-		ps.addCurrentSample(buf, i)
+		ps.addCurrentSample(buf, amp[i], i)
 
 		// Update index.
 		ps.idx += di[i]

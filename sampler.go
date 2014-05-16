@@ -16,6 +16,7 @@ type Sampler struct {
 	buf *Sound
 	diBase float32
 	di  []float32
+	amp []float32 
 }
 
 func NewSampler(name, path string) (*Sampler, error) {
@@ -155,6 +156,7 @@ func (s *Sampler) JackProcess(bufIn, bufOut [][]float32) error {
 
 	if len(s.di) != s.buf.Len {
 		s.di = make([]float32, s.buf.Len)
+		s.amp = make([]float32, s.buf.Len)
 	}
 
 	for i := 0; i < s.buf.Len; i++ {
@@ -162,13 +164,17 @@ func (s *Sampler) JackProcess(bufIn, bufOut [][]float32) error {
 		s.buf.R[i] = 0
 	}
 
+	// Note: di and amp are set here so that in the future these contorls
+	// can be handled by a more sophisticated code to allow the values 
+	// to be smoothed in time. 
 	for i, _ := range s.di {
+		s.amp[i] = float32(s.controls.Amp)
 		s.di[i] = s.diBase
 	}
 
 	for _, ks := range s.keySamplers {
 		if ks != nil && ks.HasData() {
-			ks.WriteOutput(s.buf, s.di)
+			ks.WriteOutput(s.buf, s.amp, s.di)
 		}
 	}
 

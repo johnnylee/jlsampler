@@ -16,7 +16,7 @@ import (
 // Input is 1/e decay time in seconds. Output is the per-sample amplitude
 // decay factor.
 func computeTau(tau float64) float64 {
-	if tau == 0 {
+	if tau <= 0 {
 		return 0
 	}
 	return math.Exp(-1.0 / (float64(sampleRate) * tau))
@@ -35,6 +35,7 @@ type Controls struct {
 	TauCut    float64 // Key-repeat or cut decay time constant.
 	TauFadeIn float64 // Sample fade in time.
 
+	Amp        float64 // Amplification multiplier. 
 	CropThresh float64 // Cut beginning of samples below this threshold.
 	RmsTime    float64 // Time period to use to compute sample RMS.
 	RmsLow     float64 // RMS for key 21 (Low A).
@@ -65,6 +66,7 @@ func NewControls(sampler *Sampler) *Controls {
 	c.Tau = 0
 	c.TauCut = 0
 	c.TauFadeIn = 0
+	c.Amp = 1.0
 	c.CropThresh = 0
 	c.RmsTime = 0.25
 	c.RmsLow = 0.20
@@ -84,6 +86,7 @@ func NewControls(sampler *Sampler) *Controls {
 		"Tau":          c.UpdateTau,
 		"TauCut":       c.UpdateTauCut,
 		"TauFadeIn":    c.UpdateTauFadeIn,
+		"Amp":          c.UpdateAmp,
 		"CropThresh":   c.UpdateCropThresh,
 		"RmsTime":      c.UpdateRmsTime,
 		"RmsLow":       c.UpdateRmsLow,
@@ -191,6 +194,7 @@ func (c *Controls) Print() {
 	Println("Tau:          ", -1/(math.Log(c.Tau)*sampleRate))
 	Println("TauCut:       ", -1/(math.Log(c.TauCut)*sampleRate))
 	Println("TauFadeIn:    ", -1/(math.Log(c.TauFadeIn)*sampleRate))
+	Println("Amp:          ", c.Amp)
 	Println("CropThresh:   ", c.CropThresh)
 	Println("RmsTime:      ", c.RmsTime)
 	Println("RmsLow:       ", c.RmsLow)
@@ -299,6 +303,11 @@ func (c *Controls) UpdateTauFadeIn(x float64) {
 	c.TauFadeIn = computeTau(x)
 	c.NFadeIn = float32(math.Log(ampCutoff) / math.Log(c.TauFadeIn))
 	Println("TauFadeIn:", x)
+}
+
+func (c *Controls) UpdateAmp(x float64) {
+	c.Amp = x
+	Println("Amp:", x)
 }
 
 func (c *Controls) UpdateCropThresh(x float64) {

@@ -7,6 +7,8 @@ import (
 
 func RunApp() {
 	var err error
+	
+	Println("JLSampler", version)
 
 	if len(os.Args) < 2 {
 		Println("Usage:", os.Args[0], "sampler-path", "[name]")

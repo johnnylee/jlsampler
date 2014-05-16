@@ -1,11 +1,5 @@
 TODO:
 
-0.91:
-X FakeLayerFilt -> FakeLayerRC (bool)
-o Handle out-of-range values in controls.Update* functions
-o Add Amp control
-
-1.1:
 o Remove mutex lock in jack callback (bad form)
 o Quit as jack client more gracefully
 o Pitch bend

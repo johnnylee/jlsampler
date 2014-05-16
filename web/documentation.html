@@ -89,7 +89,8 @@ file in the same manner as the sustain control shown above.
 <dd>Added to midi note key values.</dd>
 
 <dt><b>PitchBendMax</b> (1)</dt>
-<dd>The maximum pitch bend in semitones.</dd>
+<dd>The maximum pitch bend in semitones.
+This isn't currently used, but will be when pitch bend is re-implemented.</dd>
 
 <dt><b>RRBorrow</b> (0)</dt>
 <dd>Borrow notes from adjacent samples up to the given distance.
@@ -104,6 +105,9 @@ This is applied when loading, and can't be called after that.
 
 <dt><b>TauFadeIn</b> (0)</dt>
 <dd>The sample fade-in time constant in seconds. 0 disables.</dd>
+
+<dt><b>Amp</b> (1)</dt>
+<dd>Overall amplification multiplier.</dd>
 
 <dt><b>CropThresh</b> (0)</dt>
 <dd>Crop the start of samples below this threshold. 

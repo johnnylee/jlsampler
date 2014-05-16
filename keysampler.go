@@ -99,8 +99,6 @@ func (ks *KeySampler) getPlayingSampleBasic(velocity float64) *PlayingSample {
 		layer = numLayers - 1
 	}
 	
-	println("Layer:", int(127 * velocity), layer)
-
 	// Get a sample from the first layer.
 	_, sample := ks.layers[layer].GetSample(-1)
 
@@ -180,7 +178,7 @@ func (ks *KeySampler) HasData() bool {
 	return len(ks.playing) != 0
 }
 
-func (ks *KeySampler) WriteOutput(buf *Sound, di []float32) {
+func (ks *KeySampler) WriteOutput(buf *Sound, amp, di []float32) {
 	var ps *PlayingSample
 
 	// Check for sustain pedal depressed.
@@ -196,7 +194,7 @@ func (ks *KeySampler) WriteOutput(buf *Sound, di []float32) {
 			ps.tau = float32(ks.controls.Tau)
 		}
 
-		if ps.WriteOutput(buf, di) {
+		if ps.WriteOutput(buf, amp, di) {
 			ks.playing[iIn] = ps
 			iIn++
 		}
